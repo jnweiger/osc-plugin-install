@@ -152,7 +152,9 @@ def do_install(self, subcmd, opts, *args):
     apiurl = self.get_api_url()
     args = slash_split(args)
     args = expand_proj_pack(args)
+    platform = None
 
+    default_platform = 'openSUSE_12.1'
     osc_cache = '/var/tmp/osbuild-packagecache'
     etc_S_r = '/etc/SuSE-release' 
     if len(args) == 1:
@@ -187,6 +189,8 @@ def do_install(self, subcmd, opts, *args):
         if opts.verbose: print arch_words
 
       for r in all:
+        if opts.verbose:
+          print " seen ", r['project'], r['baseproject']
         if r['repository'] == 'standard':
           r['repository'] = re.sub(':','_',r['baseproject'])
         if r['arch'] in arch_words or r['arch'] == 'noarch':
@@ -274,6 +278,9 @@ def do_install(self, subcmd, opts, *args):
     elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory:NonFree':
       url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'
     else:
+      repos = get_repositories_of_project(apiurl, args[0])
+      # print "get_repositories_of_project(%s,%s) returns " % ( apiurl, args[0])
+      # print repos
       platform = self._best_platform(etc_S_r, 
         get_repositories_of_project(apiurl, args[0]), opts)
       url = "%s/%s/%s" % (dl, re.sub(':',':/',args[0]), platform)
@@ -304,7 +311,15 @@ def do_install(self, subcmd, opts, *args):
     # we should temporarily add all the layered repositories from the project.
     # so that dependencies get expanded just the same way as the 11-click-install via web-interface does.
     #
+    # We need a way to monitor what the command is printing. Without delaying, prompts and such.
+    # subprocess communicate() delays everything.
+    if platform is None: platform = 'PLATFORM'
+    print "... if this fails, try osc getbinaries %s %s %s ARCH" % (args[0], args[1], platform)
     os.execvp(cmdv[0], cmdv)
+
+    # p = subprocess.Popen(cmdv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # os.waitpid(p.pid, 0)
+
     print "\n -- osc %s, by jw@suse.de" % OSC_INS_PLUGIN_NAME
 
 
@@ -378,7 +393,8 @@ def _best_platform(self, etc_suse_release, repos, opts):
     if len(repos):
       for i in (range(0,len(repos))):
         score = self._matches_in_name(repos[i], platform_words)
-        # print " %s: %s" % (repos[i], score)
+        if opts.verbose:
+          print " %s: %s" % (repos[i], score)
         if score > max_score:
           max_score = score
           platform = repos[i]
@@ -395,7 +411,7 @@ def _best_platform(self, etc_suse_release, repos, opts):
     if platform:
       print "Best matching platform is %s" % platform
     else:
-      platform = 'openSUSE_11.4'
+      platform = default_platform
       print "Default platform=%s (no scores). Use 'build_project' in ~/.oscrc or -p to override" % platform
     return platform
 
@@ -447,6 +463,7 @@ def _search_projects(self, apiurl, packname):
   # collection = search(apiurl, 'published/binary/id'=xpath)
   query = { 'match': "@name='%s'" % packname }
   u = makeurl(apiurl, ['search', 'published', 'binary', 'id'], query)
+  print u
   f = http_GET(u)
   collection = ET.parse(f).getroot()
   found = []
