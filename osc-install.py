@@ -19,6 +19,8 @@
 # 2011-05-30, jw V0.11 -- bugfix system_name_words
 # 2012-01-20, jw V0.12 -- added hardcoded urls for 12.1/repo/oss, non-oss; for completeness only.
 #                         uploaded to https://gitorious.org/osc-plugin-install/
+# 2012-01-22, jw V0.13 -- class TeePopen added. 
+#                         trying unpublished packages as a fallback, code half done.
 #
 # osc in [project] package
 # is meant as a user interface replacement for zypper in [-p project_repo_url ] package
@@ -113,7 +115,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.12'
+OSC_INS_PLUGIN_VERSION = '0.13'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 @cmdln.hide(1)
@@ -151,8 +153,11 @@ def do_install(self, subcmd, opts, *args):
 
     apiurl = self.get_api_url()
     args = slash_split(args)
-    args = expand_proj_pack(args)
+    if len(args) == 0:
+      args = expand_proj_pack(args)
+      print "proj/pack from current working directory:", args
     platform = None
+
 
     default_platform = 'openSUSE_12.1'
     osc_cache = '/var/tmp/osbuild-packagecache'
@@ -298,7 +303,8 @@ def do_install(self, subcmd, opts, *args):
     print "(Type 'a' to add the repo permanently) Press Enter to continue."
     a = sys.stdin.readline()
     if a.find('a') >= 0:
-      all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
+      # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
+      all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
       if all.find('baseurl='+url) > 0:
         print "is already there, enabling it."
         p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
@@ -314,11 +320,30 @@ def do_install(self, subcmd, opts, *args):
     # We need a way to monitor what the command is printing. Without delaying, prompts and such.
     # subprocess communicate() delays everything.
     if platform is None: platform = 'PLATFORM'
-    print "... if this fails, try osc getbinaries %s %s %s ARCH" % (args[0], args[1], platform)
-    os.execvp(cmdv[0], cmdv)
 
-    # p = subprocess.Popen(cmdv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    # os.waitpid(p.pid, 0)
+    # old code: os.execvp(cmdv[0], cmdv)
+    buf = str(TeePopen(cmdv, verbose=True))
+    if re.search("Package '\S+' not found", buf):
+      import osc.build
+      import tempfile
+
+      print "not there, ... trying unpublished (CTRL-C to abort) Press Enter to continue."
+      a = sys.stdin.readline()
+      binaries = get_binarylist(apiurl, args[0], platform, osc.build.hostarch, package=args[1], verbose=True)
+      # [publican-2.3-15.26.noarch.rpm, publican-2.3-15.26.src.rpm]
+      # [copyfs-1.0-1.1.i586.rpm, copyfs-1.0-1.1.src.rpm, rpmlint.log]
+      ## weed out non-binaries.
+      binaries = filter(lambda x: not re.search('(src\.rpm|\.log)$', str(x)), binaries)
+      ## sort shortest name is first, so that foo-debuginfo comes after foo
+      binaries.sort(lambda x, y: cmp(len(x), len(y)))
+      ## filter down for starting with my name, optional.
+      mainbin = filter(lambda x: re.match(args[1], str(x)), binaries)
+      mainbin.extend(binaries)
+      tmpfile = tempfile.mktemp(suffix='-'+str(mainbin[0]))
+      get_binary_file(apiurl, args[0], platform, osc.build.hostarch, str(mainbin[0]), 
+                package=args[1], target_filename=tmpfile)
+      TeePopen(['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', tmpfile], verbose=True)
+      os.unlink(tmpfile)
 
     print "\n -- osc %s, by jw@suse.de" % OSC_INS_PLUGIN_NAME
 
@@ -482,4 +507,58 @@ def _user_prompt(self, prompt, msg, injected):
     response = sys.stdin.readline().strip()
     if msg: response = msg + "\n" + response
     return response
+
+class TeePopen():
+  """
+  A popen-like redirector, that does not suffer from unexpected buffering.
+  It uses a PTY, to make the subprocess believe it is connected to a terminal, 
+  rather than a pipe. There are several disadvantages involved in this technique: one, the
+  pty module lacks signal handling; second, stderr/stdout cannot be distinguished.
+  """
+  def __init__(self, cmdv, tee_fd=None, silent=False, verbose=False):
+    if tee_fd is None:
+      self.tee = StringIO()
+      self.internal_fd = True
+    else:
+      self.tee = tee_fd
+    if silent == True:
+      self.silent = ''
+    else:
+      self.silent = silent
+    if verbose:
+      print '+', ' '.join(cmdv)
+    #
+    ## python lambda is the only way to look into the surrounding scope. 
+    ## But then python lambda cannot do anything except a simple expression.
+    ## hence we need both 
+    ## a method
+    ##  which can have assignments and multiple statements, but cannot see the scope.
+    ## and a lambda
+    ##  which sees the scope, but cannot have assignements and multiple statements.
+    ## and we need to pass in a reference, so that it is mutable from inside.
+    ##  using a one element array.
+    ## Total: three ugly hacks, that would be a plain anonymous sub {} in perl.
+    import pty
+
+    # FIXME: this code has better signal handling than pty.spawn:
+    # http://code.google.com/p/lilykde/source/browse/trunk/runpty.py?r=314
+    pty.spawn(cmdv, lambda fd: self.tee_read(fd))
+  def tee_read(self, fd):
+    """ 
+    subclass and overwrite this, if a tee'ing to a file-like object is inadequate 
+    tee_read is called whenever fd was found readable. fd is the masterside of a PTY.
+    """
+    r = os.read(fd, 1024)
+    self.tee.write(r)
+    ## haeh, why is the ternery operator so ugly in python???
+    return (r, self.silent)[self.silent != False]
+  def __str__(self):
+    if self.internal_fd:
+      return self.tee.getvalue()
+    else:
+      return self.tee
+  def __del__(self):
+    if self.internal_fd:
+      self.tee.close()
+globals()['TeePopen'] = TeePopen
 
