@@ -23,12 +23,14 @@
 #                         trying unpublished packages as a fallback, code half done.
 #
 # osc in [project] package
-# is meant as a user interface replacement for zypper in [-p project_repo_url ] package
+# is a user interface for zypper in [-p project_repo_url ] package; osc thus
+# becomes the swiss-army knive of packaging. 
+# osc mkpac; wget; vi; osc build; osc commit; osc install; done.
 #
 # The most striking difference is, that osc install can find the correct
 # repository url by itself in most cases. It allows users to think in terms of
 # projects and packages, and just forget about repository URLs.
-# 
+#
 # If you want to specify a particular project, you can do so by project name.
 # otherwise osc in will honor the repository list you compiled when you used
 # zypper. But unlike zypper, it does not simply fail when a package (or
