@@ -1,7 +1,7 @@
 #
 # Rewrite of the builtin install cludge...
 #
-# (C) 2010-2011, jw@suse.de, Novell Inc., openSUSE.org
+# (C) 2010-2012, jw@suse.de, Novell Inc., openSUSE.org
 # Distribute under GPLv2 or GPLv3
 #
 # 2010-10-12, jw V0.1 -- initial draft
@@ -21,6 +21,7 @@
 #                         uploaded to https://gitorious.org/osc-plugin-install/
 # 2012-01-22, jw V0.13 -- class TeePopen added. 
 #                         trying unpublished packages as a fallback, code half done.
+# 2012-01-23, jw V0.14 -- using get_binarylist() and get_binary_file(), finishing fallback code.
 #
 # osc in [project] package
 # is a user interface for zypper in [-p project_repo_url ] package; osc thus
@@ -117,7 +118,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.13'
+OSC_INS_PLUGIN_VERSION = '0.14'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 @cmdln.hide(1)
