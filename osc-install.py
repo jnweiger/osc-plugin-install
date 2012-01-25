@@ -22,6 +22,7 @@
 # 2012-01-22, jw V0.13 -- class TeePopen added. 
 #                         trying unpublished packages as a fallback, code half done.
 # 2012-01-23, jw V0.14 -- using get_binarylist() and get_binary_file(), finishing fallback code.
+#                         Improved _user_prompt() .. msg is not None ...
 #
 # osc in [project] package
 # is a user interface for zypper in [-p project_repo_url ] package; osc thus
@@ -500,15 +501,17 @@ def _search_projects(self, apiurl, packname):
   found.sort(key=lambda e: (-pref.get(e['project'],0), e['project'], e['repository']))
   return found
 
+## namespace clash: same method in osc-legal.py
 def _user_prompt(self, prompt, msg, injected):
+    if msg is not None: msg = msg.rstrip()
     if injected:
-      if msg: return msg + "\n" + injected
+      if msg is not None: return msg + "\n" + injected
       return injected
     print prompt
-    if msg: print "> " + msg
+    if msg is not None: print "> " + msg
     sys.stdout.write("> ")
     response = sys.stdin.readline().strip()
-    if msg: response = msg + "\n" + response
+    if msg is not None: response = msg + "\n" + response
     return response
 
 class TeePopen():
