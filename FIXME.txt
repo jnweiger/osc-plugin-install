@@ -1,0 +1,14 @@
+
+osc in Documentation:Tools daps
+ Adding repository 'http://download.opensuse.org/repositories/Documentation:/Tools/KDE_Release_48_openSUSE_12.1' [0%]
+ Repository named 'tmp1' already exists. Please use another alias.
+# zypper bug. tmp1 is very likely a leftover from a previous run.
+# we should detect, query user, and if affirmative recycle this one.
+
+osc in daps -p openSUSE_12.1_Update
+ https://api.opensuse.org/search/published/binary/id?match=%40name%3D%27daps%27
+ using /etc/SuSE-release to match build platforms
+ CAUTION: .oscrc:build_project openSUSE:12.1 does not match: low score=-2
+# this is a silly colon versus underscore issue.
+
+

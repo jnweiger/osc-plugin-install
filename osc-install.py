@@ -23,6 +23,7 @@
 #                         trying unpublished packages as a fallback, code half done.
 # 2012-01-23, jw V0.14 -- using get_binarylist() and get_binary_file(), finishing fallback code.
 #                         Improved _user_prompt() .. msg is not None ..., packman download url added.
+# 2012-02-21, jw V0.15 -- improved _matches_in_name() to prefer exact matches over suffix matches.
 #
 # osc in [project] package
 # is a user interface for zypper in [-p project_repo_url ] package; osc thus
@@ -119,7 +120,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.14'
+OSC_INS_PLUGIN_VERSION = '0.15'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 @cmdln.hide(1)
@@ -431,7 +432,7 @@ def _best_platform(self, etc_suse_release, repos, opts):
       for i in (range(0,len(repos))):
         score = self._matches_in_name(repos[i], platform_words)
         if opts.verbose:
-          print " %s: %s" % (repos[i], score)
+          print "repo %s: score %s" % (repos[i], score)
         if score > max_score:
           max_score = score
           platform = repos[i]
@@ -447,6 +448,9 @@ def _best_platform(self, etc_suse_release, repos, opts):
 
     if platform:
       print "Best matching platform is %s" % platform
+      if opts.platform and opts.platform != platform:
+          platform = opts.platform 
+          print "cmdline takes precedence: -p %s" % opts.platform
     else:
       platform = default_platform
       print "Default platform=%s (no scores). Use 'build_project' in ~/.oscrc or -p to override" % platform
@@ -454,10 +458,27 @@ def _best_platform(self, etc_suse_release, repos, opts):
 
 
 def _matches_in_name(self, name, words):
+    """
+    words is a dictionary of keywords with score values. Name is matched against each word.
+    A word can score up to 4 times: infix, prefix, suffix or exact match.
+    Any left-over wordlike tokens in name count (slightly) against the score.
+    """
     score = 0
+    remainder = name
+
     for m in words.keys():
-        if name.find(m) >= 0:
-            score += words[m]
+        remainder = re.sub(re.escape(m), '', remainder)
+        if name.find(m) >= 0:  score += 10 * words[m]
+        if name.startswith(m): score += 10 * words[m]
+        if name.endswith(m):   score += 10 * words[m]
+        if name == m:          score += 10 * words[m]
+
+    if len(remainder):
+      remainder = re.sub('[ _:]+', ' ', remainder)
+      # if opts.verbose:
+      #   print "%s left-over pieces: %s" % (name, remainder.split())
+      score -= len(remainder.split())
+
     return score
 
 
