@@ -22,7 +22,7 @@
 # 2012-01-22, jw V0.13 -- class TeePopen added. 
 #                         trying unpublished packages as a fallback, code half done.
 # 2012-01-23, jw V0.14 -- using get_binarylist() and get_binary_file(), finishing fallback code.
-#                         Improved _user_prompt() .. msg is not None ...
+#                         Improved _user_prompt() .. msg is not None ..., packman download url added.
 #
 # osc in [project] package
 # is a user interface for zypper in [-p project_repo_url ] package; osc thus
@@ -268,6 +268,9 @@ def do_install(self, subcmd, opts, *args):
         dl = 'http://download.opensuse.org/repositories'
     if apiurl == 'https://api.suse.de':
         dl = 'http://download.suse.de/ibs'
+    if apiurl == 'https://pmbs-api.links2linux.org':
+        dl = 'https://pmbs.links2linux.org/download'
+        # home projects are not there, unfortunatly
 
     ## FIXME: what an ugly hack!
     if apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory':
@@ -331,6 +334,11 @@ def do_install(self, subcmd, opts, *args):
       import osc.build
       import tempfile
 
+      ## FIXME: dependencies are not resolved here...o
+      ## very likely to run into somehting like this:
+      # Forcing installation of 'glade3-3.7.0-8.1.i586' from repository 'Plain RPM files cache'.
+      # Problem: nothing provides libgladeui-1.so.9 needed by glade3-3.7.0-8.1.i586
+      ##
       print "not there, ... trying unpublished (CTRL-C to abort) Press Enter to continue."
       a = sys.stdin.readline()
       binaries = get_binarylist(apiurl, args[0], platform, osc.build.hostarch, package=args[1], verbose=True)
@@ -339,7 +347,7 @@ def do_install(self, subcmd, opts, *args):
       ## weed out non-binaries.
       binaries = filter(lambda x: not re.search('(src\.rpm|\.log)$', str(x)), binaries)
       ## sort shortest name is first, so that foo-debuginfo comes after foo
-      binaries.sort(lambda x, y: cmp(len(x), len(y)))
+      binaries.sort(lambda x, y: cmp(len(str(x)), len(str(y))))
       ## filter down for starting with my name, optional.
       mainbin = filter(lambda x: re.match(args[1], str(x)), binaries)
       mainbin.extend(binaries)
