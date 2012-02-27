@@ -270,8 +270,7 @@ def do_install(self, subcmd, opts, *args):
     if apiurl == 'https://api.suse.de':
         dl = 'http://download.suse.de/ibs'
     if apiurl == 'https://pmbs-api.links2linux.org':
-        dl = 'https://pmbs.links2linux.org/download'
-        # home projects are not there, unfortunatly
+        dl = 'http://pmbs.links2linux.org/download'
 
     ## FIXME: what an ugly hack!
     if apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory':
