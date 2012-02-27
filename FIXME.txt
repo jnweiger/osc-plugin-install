@@ -1,3 +1,9 @@
+(repo=http://pmbs.links2linux.org/download/home:/jnweiger/openSUSE_12.1; sudo zypper -p $repo --gpg-auto-import-keys --no-refresh -v in --force --from $repo dvswitch)
+(Type 'a' to add the repo permanently) Press Enter to continue.
+a
+Adding repository 'obs://home:jnweiger' [done]
+Repository named 'obs://home:jnweiger' already exists. Please use another alias.
+# FIXME: this is not obs:, it is pmbs!!!
 
 osc in Documentation:Tools daps
  Adding repository 'http://download.opensuse.org/repositories/Documentation:/Tools/KDE_Release_48_openSUSE_12.1' [0%]
@@ -10,5 +16,6 @@ osc in daps -p openSUSE_12.1_Update
  using /etc/SuSE-release to match build platforms
  CAUTION: .oscrc:build_project openSUSE:12.1 does not match: low score=-2
 # this is a silly colon versus underscore issue.
+
 
 
