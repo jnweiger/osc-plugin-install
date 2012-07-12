@@ -24,6 +24,7 @@
 # 2012-01-23, jw V0.14 -- using get_binarylist() and get_binary_file(), finishing fallback code.
 #                         Improved _user_prompt() .. msg is not None ..., packman download url added.
 # 2012-02-21, jw V0.15 -- improved _matches_in_name() to prefer exact matches over suffix matches.
+# 2012-07-12, jw V0.16 -- no stacktrace, when package does not exist.
 #
 # osc in [project] package
 # is a user interface for zypper in [-p project_repo_url ] package; osc thus
@@ -120,7 +121,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.15'
+OSC_INS_PLUGIN_VERSION = '0.16'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 @cmdln.hide(1)
@@ -164,7 +165,7 @@ def do_install(self, subcmd, opts, *args):
     platform = None
 
 
-    default_platform = 'openSUSE_12.1'
+    # default_platform = 'openSUSE_12.1'
     osc_cache = '/var/tmp/osbuild-packagecache'
     etc_S_r = '/etc/SuSE-release' 
     if len(args) == 1:
@@ -307,18 +308,22 @@ def do_install(self, subcmd, opts, *args):
         cmdv = ['sudo', 'zypper', '-p', url, '--gpg-auto-import-keys', '--no-refresh', '-v', 'in', '--force', '--from', url, args[1]]
 
     print "Suggested installation command: \n" + cmd
-    print "(Type 'a' to add the repo permanently) Press Enter to continue."
-    a = sys.stdin.readline()
-    if a.find('a') >= 0:
-      # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
-      all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
-      if all.find('baseurl='+url) > 0:
-        print "is already there, enabling it."
-        p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
-        os.waitpid(p.pid, 0)
-      else:
-        p = subprocess.Popen(['sudo', 'zypper', 'ar', url, 'obs://'+args[0]])
-        os.waitpid(p.pid, 0)
+    all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
+    if all.find('baseurl='+url) > 0:
+      print "repo %s was already added." % url
+    else:
+      print "(Type 'a' to add the repo permanently) Press Enter to continue."
+      a = sys.stdin.readline()
+      if a.find('a') >= 0:
+        # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
+        all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
+        if all.find('baseurl='+url) > 0:
+          print "is already there, enabling it."
+          p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
+          os.waitpid(p.pid, 0)
+        else:
+          p = subprocess.Popen(['sudo', 'zypper', 'ar', url, 'obs://'+args[0]])
+          os.waitpid(p.pid, 0)
 
     # FIXME:
     # we should temporarily add all the layered repositories from the project.
@@ -351,12 +356,14 @@ def do_install(self, subcmd, opts, *args):
       ## filter down for starting with my name, optional.
       mainbin = filter(lambda x: re.match(args[1], str(x)), binaries)
       mainbin.extend(binaries)
-      tmpfile = tempfile.mktemp(suffix='-'+str(mainbin[0]))
-      get_binary_file(apiurl, args[0], platform, osc.build.hostarch, str(mainbin[0]), 
+      if len(mainbin) > 0:
+        tmpfile = tempfile.mktemp(suffix='-'+str(mainbin[0]))
+        get_binary_file(apiurl, args[0], platform, osc.build.hostarch, str(mainbin[0]), 
                 package=args[1], target_filename=tmpfile)
-      TeePopen(['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', tmpfile], verbose=True)
-      os.unlink(tmpfile)
-
+        TeePopen(['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', tmpfile], verbose=True)
+        os.unlink(tmpfile)
+      else:
+        print "There is no %s for you." % args[1]
     print "\n -- osc %s, by jw@suse.de" % OSC_INS_PLUGIN_NAME
 
 
@@ -408,6 +415,7 @@ def _best_platform(self, etc_suse_release, repos, opts):
     etc_suse_release is ignored, if platform is not None.
     """
    
+    default_platform = 'openSUSE_12.2'
     platform_in = opts.platform
     if opts.verbose:
       print "_best_platform: etc_suse_release=%s, platform_in=%s, repos=%s" % (etc_suse_release, platform_in, repos)
