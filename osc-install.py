@@ -26,6 +26,9 @@
 # 2012-02-21, jw V0.15 -- improved _matches_in_name() to prefer exact matches over suffix matches.
 # 2012-07-12, jw V0.16 -- no stacktrace, when package does not exist.
 #
+# FIXME: osc ll -b KDE:Distro:Factory digikam
+#        shows packages for 12.2, osc in does not.
+#
 # osc in [project] package
 # is a user interface for zypper in [-p project_repo_url ] package; osc thus
 # becomes the swiss-army knive of packaging. 

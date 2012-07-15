@@ -1,3 +1,6 @@
+osc ll -b KDE:Distro:Factory digikam
+shows packages for 12.2, osc in does not.
+
 (repo=http://pmbs.links2linux.org/download/home:/jnweiger/openSUSE_12.1; sudo zypper -p $repo --gpg-auto-import-keys --no-refresh -v in --force --from $repo dvswitch)
 (Type 'a' to add the repo permanently) Press Enter to continue.
 a
