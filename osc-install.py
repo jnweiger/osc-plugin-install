@@ -121,6 +121,25 @@
 #
 # http://download.opensuse.org/repositories/openSUSE:/11.3:/NonFree/standard
 # 
+# FIXME: 
+# If your package requires a virtual provide, current zypper repo metadata is needed to 
+# map this to package names.  E.g.
+# Two ways how this can fail:
+# a) the package was recently added to a different repo, which is not refreshed
+#    when running osc in. (osc in refreshes only the one repo, from which the 
+#    package comes)
+# b) the repo where those dependendcies should come from are not in the zypper list 
+#    at all. osc in suggests to add repos, but one may not want to do that often.
+# E.g:
+# Problem: nothing provides libfreeimageplus.so.3()(64bit) needed by freecad-devel-0.13rc.svn5443-32.1.x86_64
+# If you see this, run 'sudo zypper ref' then retry. If it works it was issue a).
+# If not, see if the repo list printed by zypper ref, contains all needed repos.
+# Solution: parse the project layering, add all repos, that are needed, then run the 
+# install.
+# FIXME: osc in should print out the description from meta pkg, so that the user 
+# has something meaningful to read. Packagers may also put special hints there about the 
+# usage or installation of the package.
+
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
@@ -134,6 +153,7 @@ OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_V
 @cmdln.option('-f', '--first', action='store_true', help='if multiple projects offer a package, choose the first. Default: Ask user')
 @cmdln.option('-v', '--verbose', action='store_true', help='babble while working')
 @cmdln.option('-I', '--no-cache', action='store_true', help='ignore cached packages, always download. Default: check build cache /var/tmp/osbuild-packagecache')
+@cmdln.option('-U', '--prefer-unpublished', action='store_true', help='Grab unpublished binary directly from the API. Usefull if publishing is slow. Default: use normal mirror system.')
 #@cmdln.prep(cwd_proj_pack)
 def do_install(self, subcmd, opts, *args):
     """${cmd_name}: install a package after build via zypper in -r
@@ -275,6 +295,7 @@ def do_install(self, subcmd, opts, *args):
         dl = 'http://download.suse.de/ibs'
     if apiurl == 'https://pmbs-api.links2linux.org':
         dl = 'http://pmbs.links2linux.org/download'
+        # FIXME: home projects are not there, unfortunatly
 
     ## FIXME: what an ugly hack!
     if apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory':
@@ -338,7 +359,7 @@ def do_install(self, subcmd, opts, *args):
 
     # old code: os.execvp(cmdv[0], cmdv)
     buf = str(TeePopen(cmdv, verbose=True))
-    if re.search("Package '\S+' not found", buf):
+    if opts.prefer_unpublished or re.search("Package '\S+' not found", buf):
       import osc.build
       import tempfile
 
