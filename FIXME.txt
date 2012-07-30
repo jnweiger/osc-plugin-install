@@ -21,4 +21,7 @@ osc in daps -p openSUSE_12.1_Update
 # this is a silly colon versus underscore issue.
 
 
+add all repos from project layering for better dependency resolution.
+
+print out osc meta description while installing, there may be instructions there...
 
