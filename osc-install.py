@@ -25,6 +25,7 @@
 #                         Improved _user_prompt() .. msg is not None ..., packman download url added.
 # 2012-02-21, jw V0.15 -- improved _matches_in_name() to prefer exact matches over suffix matches.
 # 2012-07-12, jw V0.16 -- no stacktrace, when package does not exist.
+# 2012-09-13, jw V0.17 -- also weed out .xml files! -U --prefer-unpublished added
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -143,7 +144,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.16'
+OSC_INS_PLUGIN_VERSION = '0.17'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 @cmdln.hide(1)
@@ -374,7 +375,7 @@ def do_install(self, subcmd, opts, *args):
       # [publican-2.3-15.26.noarch.rpm, publican-2.3-15.26.src.rpm]
       # [copyfs-1.0-1.1.i586.rpm, copyfs-1.0-1.1.src.rpm, rpmlint.log]
       ## weed out non-binaries.
-      binaries = filter(lambda x: not re.search('(src\.rpm|\.log)$', str(x)), binaries)
+      binaries = filter(lambda x: not re.search('(src\.rpm|\.log|\.xml)$', str(x)), binaries)
       ## sort shortest name is first, so that foo-debuginfo comes after foo
       binaries.sort(lambda x, y: cmp(len(str(x)), len(str(y))))
       ## filter down for starting with my name, optional.
