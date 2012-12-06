@@ -25,3 +25,8 @@ add all repos from project layering for better dependency resolution.
 
 print out osc meta description while installing, there may be instructions there...
 
+# rpm -q --qf '%{disturl}\n' kernel-desktop
+#  obs://build.opensuse.org/openSUSE:Maintenance:970/openSUSE_12.2_Update/d5ce0cc876098d68d533ae47996a63ff-kernel-desktop.openSUSE_12.2_Update
+# http://download.opensuse.org/repositories/openSUSE:/Maintenance:/970/openSUSE_12.2_Update/i586/kernel-desktop-debuginfo-3.4.11-2.16.1.i586.rpm
+# How to map from this obs:// url to the above download url???
+# sudo zypper in ... for this url needs to be monitored with whatsup. It is silent.

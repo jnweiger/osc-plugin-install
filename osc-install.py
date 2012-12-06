@@ -140,12 +140,45 @@
 # FIXME: osc in should print out the description from meta pkg, so that the user 
 # has something meaningful to read. Packagers may also put special hints there about the 
 # usage or installation of the package.
-
+#
+# rpm -q --qf '%{disturl}\n' kernel-desktop
+#  obs://build.opensuse.org/openSUSE:Maintenance:970/openSUSE_12.2_Update/d5ce0cc876098d68d533ae47996a63ff-kernel-desktop.openSUSE_12.2_Update
+# How to map from this obs:// url to the following download url???
+# http://download.opensuse.org/repositories/openSUSE:/Maintenance:/970/openSUSE_12.2_Update/i586/kernel-desktop-debuginfo-3.4.11-2.16.1.i586.rpm
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
 OSC_INS_PLUGIN_VERSION = '0.17'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
+
+# this table is obsoleted by get_repositories_of_project()
+OSC_INS_REPO_MAP = """
+{ 
+  '*': { '*': ['http://unknown.donwload.server(%{apiurl})/' ] },
+  'https://api.opensuse.org': 
+    {
+      '*': [ 'http://download.opensuse.org/repositories' ],
+      'openSUSE:11.3': ['http://download.opensuse.org/distribution/11.3/repo/oss'],
+      'openSUSE:11.4': ['http://download.opensuse.org/distribution/11.4/repo/oss'],
+      'openSUSE:12.1': ['http://download.opensuse.org/distribution/12.1/repo/oss'],
+      'openSUSE:12.2': ['http://download.opensuse.org/distribution/12.2/repo/oss'],
+      'openSUSE:Factory': ['http://download.opensuse.org/distribution/openSUSE-current/repo/oss'],
+      'openSUSE:11.3:NonFree': ['http://download.opensuse.org/distribution/11.3/repo/non-oss'],
+      'openSUSE:11.4:NonFree': ['http://download.opensuse.org/distribution/11.4/repo/non-oss'],
+      'openSUSE:12.1:NonFree': ['http://download.opensuse.org/distribution/12.1/repo/non-oss'],
+      'openSUSE:12.2:NonFree': ['http://download.opensuse.org/distribution/12.2/repo/non-oss'],
+      'openSUSE:Factory:NonFree': ['http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'],
+      '...': ['...']
+    },
+  'https://api.suse.de':
+    {
+    },
+  'https://pmbs-api.links2linux.org':
+    {
+      # FIXME: home projects are not there, unfortunatly
+      '*': [ 'http://pmbs.links2linux.org/download' ]
+    }
+}"""
 
 @cmdln.hide(1)
 @cmdln.alias('in')
@@ -307,12 +340,16 @@ def do_install(self, subcmd, opts, *args):
       url = 'http://download.opensuse.org/distribution/11.4/repo/oss'
     elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.1':
       url = 'http://download.opensuse.org/distribution/12.1/repo/oss'
+    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2':
+      url = 'http://download.opensuse.org/distribution/12.2/repo/oss'
     elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.3:NonFree':
       url = 'http://download.opensuse.org/distribution/11.3/repo/non-oss'
     elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.4:NonFree':
       url = 'http://download.opensuse.org/distribution/11.4/repo/non-oss'
     elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.1:NonFree':
       url = 'http://download.opensuse.org/distribution/12.1/repo/non-oss'
+    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2:NonFree':
+      url = 'http://download.opensuse.org/distribution/12.2/repo/non-oss'
     elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory:NonFree':
       url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'
     else:
