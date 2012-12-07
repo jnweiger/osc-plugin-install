@@ -26,6 +26,7 @@
 # 2012-02-21, jw V0.15 -- improved _matches_in_name() to prefer exact matches over suffix matches.
 # 2012-07-12, jw V0.16 -- no stacktrace, when package does not exist.
 # 2012-09-13, jw V0.17 -- also weed out .xml files! -U --prefer-unpublished added
+# 2012-12-07, jw V0.18 -- added direct osc bse result usage. (args[0] is None)
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -148,7 +149,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.17'
+OSC_INS_PLUGIN_VERSION = '0.18'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -201,7 +202,11 @@ def do_install(self, subcmd, opts, *args):
     osc in PACKAGE
         find PACKAGE in this build service. The project of the current directoy, (if any) 
         has highest precedence, followed by the projects listed in 
-        ~/.oscrc:getpac_default_project (if any), followed by the project repos registered with zypper.
+        ~/.oscrc:getpac_default_project (if any), followed by the project repos
+        registered with zypper.
+
+    osc in PATH:/TO:/PACKAGE.rpm
+        Use a path returned by osc bse.
 
     osc in PROJECT PACKAGE
         install PACKAGE from PROJECT.
@@ -215,112 +220,13 @@ def do_install(self, subcmd, opts, *args):
 
 
     apiurl = self.get_api_url()
-    args = slash_split(args)
+    if len(args) == 1 and not re.search('\.(rpm|ymp)$', args[0]):
+      args = slash_split(args)
     if len(args) == 0:
       args = expand_proj_pack(args)
       print "proj/pack from current working directory:", args
     platform = None
 
-
-    # default_platform = 'openSUSE_12.1'
-    osc_cache = '/var/tmp/osbuild-packagecache'
-    etc_S_r = '/etc/SuSE-release' 
-    if len(args) == 1:
-    #{
-      m = re.match('perl\((.*)\)$', args[0])
-      if m:
-        # a perlish RPM capability
-        args = ( 'perl-' + re.sub('::', '-', m.group(1)), )
-        print "obs name -> %s" % args[0]
-      elif re.search('::', args[0]):
-        # a cpan name
-        args = ( 'perl-' + re.sub('::', '-', args[0]), )
-        print "obs name -> %s" % args[0]
-      all = self._search_projects(apiurl, args[0])
-      # [ {'name': 'python-json-rpc-lib', 'repository': 'openSUSE_Factory', 
-      #    'package': 'python-json-rpc-lib',  'type': 'rpm', 
-      #    'filepath': 'home:/dec16180/openSUSE_Factory/x86_64/python-json-rpc-lib-20090604-5.1.x86_64.rpm', 
-      #    'filename': 'python-json-rpc-lib-20090604-5.1.x86_64.rpm', 'project': 'home:dec16180', 
-      #    'baseproject': 'openSUSE:Factory', 'version': '20090604-5.1', 'arch': 'x86_64'}, ... ]
-      if not opts.no_cache:
-          self._find_cached(all, osc_cache)
-      ## extract all platforms, then ...
-      seen = {};
-      arch_words = self._read_system_name(etc_S_r, opts)
-      if (opts.arch is not None): 
-        # and nothing else.
-        arch_words = [ opts.arch ]
-        if opts.arch == 'i386' or opts.arch == 'i586' or opts.arch == 'i686':
-          arch_words.append('i586')
-          arch_words.append('i686')
-          arch_words.append('i386')
-        if opts.verbose: print arch_words
-
-      for r in all:
-        if opts.verbose:
-          print " seen ", r['project'], r['baseproject']
-        if r['repository'] == 'standard':
-          r['repository'] = re.sub(':','_',r['baseproject'])
-        if r['arch'] in arch_words or r['arch'] == 'noarch':
-          seen[r['repository']] = 1
-      if opts.verbose: print seen
-      best = self._best_platform(etc_S_r, seen.keys(), opts)
-        
-      ## ...filter down by best matching platform
-      # my @res = grep { $_->{repository} eq $best } @all;
-      ## python: filter() ???
-      res = []
-      seen = {}
-      for r in all: 
-        proj_name = r['project']
-        if r['repository'] == best and not seen.has_key(proj_name):
-          if r['arch'] in arch_words or r['arch'] == 'noarch':
-            if proj_name == best:
-              res.insert(0,r)
-            else:
-              res.append(r)         # list each project only once, with best matching arch.
-            seen[proj_name] = 1
-
-      if not res:
-        raise oscerr.WrongArgs('Could not find %s.\n(Use two args to avoid searching, try --arch, --platform, or try another build service).' % args[0])
-
-      i = 1
-      for r in res:
-        cached = ''
-        if r.has_key('cached'): cached = ' (cached %s)' % (r['cached']['size'])
-        print "%2d: %-50s%-15s %-10s%s" % (i, r['project'], r['version'], r['arch'], cached)
-        i += 1
-      print ''
-      if opts.arch:
-        print "WARNING: --arch option is unreliable. zypper might still choose something different!"
-      
-      if len(res) > 1:
-        nr = self._user_prompt("Type number from above list (default=1), press ENTER", None, None)
-      
-      idx = 0
-      try:
-        idx = int(nr) - 1
-        args = [ res[idx]['project'], res[idx]['name'] ]
-      except:
-        idx = 0
-        args = [ res[0]['project'], res[0]['name'] ]
-
-      try:
-        args[1] = res[idx]['cached']['path']
-        print >>sys.stderr, 'using %s' % args[1]
-      except:
-        print >>sys.stderr, 'using %s/%s' % (args[0], args[1])
-
-    #}
-            
-    ## FIXME:
-    ## if there is only one argument, and it ends in .ymp
-    ## then fetch it, Parse XML to get the first
-    ##  metapackage.group.repositories.repository.url
-    ## and construct zypper cmd's for all
-    ##  metapackage.group.software.item.name
-    ##
-    ## if args[0] is already an url, the use it as is.
 
     dl = 'http://unknown.donwload.server(%s)/' % apiurl
     if apiurl == 'https://api.opensuse.org':
@@ -331,66 +237,192 @@ def do_install(self, subcmd, opts, *args):
         dl = 'http://pmbs.links2linux.org/download'
         # FIXME: home projects are not there, unfortunatly
 
-    ## FIXME: what an ugly hack!
-    if apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory':
-      url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.3':
-      url = 'http://download.opensuse.org/distribution/11.3/repo/oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.4':
-      url = 'http://download.opensuse.org/distribution/11.4/repo/oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.1':
-      url = 'http://download.opensuse.org/distribution/12.1/repo/oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2':
-      url = 'http://download.opensuse.org/distribution/12.2/repo/oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.3:NonFree':
-      url = 'http://download.opensuse.org/distribution/11.3/repo/non-oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.4:NonFree':
-      url = 'http://download.opensuse.org/distribution/11.4/repo/non-oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.1:NonFree':
-      url = 'http://download.opensuse.org/distribution/12.1/repo/non-oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2:NonFree':
-      url = 'http://download.opensuse.org/distribution/12.2/repo/non-oss'
-    elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory:NonFree':
-      url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'
-    else:
-      repos = get_repositories_of_project(apiurl, args[0])
-      # print "get_repositories_of_project(%s,%s) returns " % ( apiurl, args[0])
-      # print repos
-      platform = self._best_platform(etc_S_r, 
-        get_repositories_of_project(apiurl, args[0]), opts)
-      url = "%s/%s/%s" % (dl, re.sub(':',':/',args[0]), platform)
+    # default_platform = 'openSUSE_12.1'
+    osc_cache = '/var/tmp/osbuild-packagecache'
+    etc_S_r = '/etc/SuSE-release' 
+    if len(args) == 1:
+    #{
+      if re.search('\.rpm$', args[0]):
+        if re.match('https?://', args[0]):
+          url = args[0]
+        else:
+          url = "%s/%s" % (dl, args[0])
+        args = [ None, url ]
+        print >> sys.stderr, "using direct rpm url (%s).\n" % url
+      elif re.search('\.ymp$', args[0]):
+        print "ymp file not implemented.\n"
+        sys.exit(0)
+        ## FIXME:
+        ## if there is only one argument, and it ends in .ymp
+        ## then fetch it, Parse XML to get the first
+        ##  metapackage.group.repositories.repository.url
+        ## and construct zypper cmd's for all
+        ##  metapackage.group.software.item.name
+        ##
+        ## if args[0] is already an url, the use it as is.
+      else:
+      #{
+        m = re.match('perl\((.*)\)$', args[0])
+        if m:
+          # a perlish RPM capability
+          args = ( 'perl-' + re.sub('::', '-', m.group(1)), )
+          print "obs name -> %s" % args[0]
+        elif re.search('::', args[0]):
+          # a cpan name
+          args = ( 'perl-' + re.sub('::', '-', args[0]), )
+          print "obs name -> %s" % args[0]
+        all = self._search_projects(apiurl, args[0])
+        # [ {'name': 'python-json-rpc-lib', 'repository': 'openSUSE_Factory', 
+        #    'package': 'python-json-rpc-lib',  'type': 'rpm', 
+        #    'filepath': 'home:/dec16180/openSUSE_Factory/x86_64/python-json-rpc-lib-20090604-5.1.x86_64.rpm', 
+        #    'filename': 'python-json-rpc-lib-20090604-5.1.x86_64.rpm', 'project': 'home:dec16180', 
+        #    'baseproject': 'openSUSE:Factory', 'version': '20090604-5.1', 'arch': 'x86_64'}, ... ]
+        if not opts.no_cache:
+            self._find_cached(all, osc_cache)
+        ## extract all platforms, then ...
+        seen = {};
+        arch_words = self._read_system_name(etc_S_r, opts)
+        if (opts.arch is not None): 
+          # and nothing else.
+          arch_words = [ opts.arch ]
+          if opts.arch == 'i386' or opts.arch == 'i586' or opts.arch == 'i686':
+            arch_words.append('i586')
+            arch_words.append('i686')
+            arch_words.append('i386')
+          if opts.verbose: print arch_words
 
-    if args[1][0] == '/':
-        # zypper bug: with -p url, url is always refreshed, our --no-refresh is ignored.
-        # hence without -p url; use --no-cache if dependencies fail.
-        cmd = "sudo zypper --no-refresh -v in --force %s" % args[1]
-        cmdv = ['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', args[1]]
+        for r in all:
+          if opts.verbose:
+            print " seen ", r['project'], r['baseproject']
+          if r['repository'] == 'standard':
+            r['repository'] = re.sub(':','_',r['baseproject'])
+          if r['arch'] in arch_words or r['arch'] == 'noarch':
+            seen[r['repository']] = 1
+        if opts.verbose: print seen
+        best = self._best_platform(etc_S_r, seen.keys(), opts)
+          
+        ## ...filter down by best matching platform
+        # my @res = grep { $_->{repository} eq $best } @all;
+        ## python: filter() ???
+        res = []
+        seen = {}
+        for r in all: 
+          proj_name = r['project']
+          if r['repository'] == best and not seen.has_key(proj_name):
+            if r['arch'] in arch_words or r['arch'] == 'noarch':
+              if proj_name == best:
+                res.insert(0,r)
+              else:
+                res.append(r)         # list each project only once, with best matching arch.
+              seen[proj_name] = 1
+
+        if not res:
+          raise oscerr.WrongArgs('Could not find %s.\n(Use two args to avoid searching, try --arch, --platform, or try another build service).' % args[0])
+
+        i = 1
+        for r in res:
+          cached = ''
+          if r.has_key('cached'): cached = ' (cached %s)' % (r['cached']['size'])
+          print "%2d: %-50s%-15s %-10s%s" % (i, r['project'], r['version'], r['arch'], cached)
+          i += 1
+        print ''
+        if opts.arch:
+          print "WARNING: --arch option is unreliable. zypper might still choose something different!"
+        
+        if len(res) > 1:
+          nr = self._user_prompt("Type number from above list (default=1), press ENTER", None, None)
+        
+        idx = 0
+        try:
+          idx = int(nr) - 1
+          args = [ res[idx]['project'], res[idx]['name'] ]
+        except:
+          idx = 0
+          args = [ res[0]['project'], res[0]['name'] ]
+
+        try:
+          args[1] = res[idx]['cached']['path']
+          print >>sys.stderr, 'using %s' % args[1]
+        except:
+          print >>sys.stderr, 'using %s/%s' % (args[0], args[1])
+      #}
+    #}
+
+    if args[0] is not None:
+    #{
+      ## FIXME: what an ugly hack!
+      if apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory':
+        url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.3':
+        url = 'http://download.opensuse.org/distribution/11.3/repo/oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.4':
+        url = 'http://download.opensuse.org/distribution/11.4/repo/oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.1':
+        url = 'http://download.opensuse.org/distribution/12.1/repo/oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2':
+        url = 'http://download.opensuse.org/distribution/12.2/repo/oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.3:NonFree':
+        url = 'http://download.opensuse.org/distribution/11.3/repo/non-oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.4:NonFree':
+        url = 'http://download.opensuse.org/distribution/11.4/repo/non-oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.1:NonFree':
+        url = 'http://download.opensuse.org/distribution/12.1/repo/non-oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2:NonFree':
+        url = 'http://download.opensuse.org/distribution/12.2/repo/non-oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory:NonFree':
+        url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'
+      else:
+        repos = get_repositories_of_project(apiurl, args[0])
+        # print "get_repositories_of_project(%s,%s) returns " % ( apiurl, args[0])
+        # print repos
+        platform = self._best_platform(etc_S_r, 
+          get_repositories_of_project(apiurl, args[0]), opts)
+        url = "%s/%s/%s" % (dl, re.sub(':',':/',args[0]), platform)
+
+      if args[1][0] == '/':
+          # local disk pathname, coming from a cache..
+          # zypper bug: with -p url, url is always refreshed, our --no-refresh is ignored.
+          # hence without -p url; use --no-cache if dependencies fail.
+          cmd = "sudo zypper --no-refresh -v in --force %s" % args[1]
+          cmdv = ['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', args[1]]
+      else:
+          cmd = "(repo=%s; sudo zypper -p $repo --gpg-auto-import-keys --no-refresh -v in --force --from $repo %s)" % (url, args[1])
+          cmdv = ['sudo', 'zypper', '-p', url, '--gpg-auto-import-keys', '--no-refresh', '-v', 'in', '--force', '--from', url, args[1]]
+    #}
     else:
-        cmd = "(repo=%s; sudo zypper -p $repo --gpg-auto-import-keys --no-refresh -v in --force --from $repo %s)" % (url, args[1])
-        cmdv = ['sudo', 'zypper', '-p', url, '--gpg-auto-import-keys', '--no-refresh', '-v', 'in', '--force', '--from', url, args[1]]
+    #{
+      cmd = "(sudo zypper in %s)" % url
+      cmdv = ['sudo', 'zypper', 'in', url]
+    #}
 
     print "Suggested installation command: \n" + cmd
-    all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
-    if all.find('baseurl='+url) > 0:
-      print "repo %s was already added." % url
-    else:
-      print "(Type 'a' to add the repo permanently) Press Enter to continue."
-      a = sys.stdin.readline()
-      if a.find('a') >= 0:
-        # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
-        all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
-        if all.find('baseurl='+url) > 0:
-          print "is already there, enabling it."
-          p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
-          os.waitpid(p.pid, 0)
-        else:
-          p = subprocess.Popen(['sudo', 'zypper', 'ar', url, 'obs://'+args[0]])
-          os.waitpid(p.pid, 0)
 
-    # FIXME:
-    # we should temporarily add all the layered repositories from the project.
-    # so that dependencies get expanded just the same way as the 11-click-install via web-interface does.
-    #
+    if args[0] is not None:
+    #{
+      all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
+      if all.find('baseurl='+url) > 0:
+        print "repo %s was already added." % url
+      else:
+        print "(Type 'a' to add the repo permanently) Press Enter to continue."
+        a = sys.stdin.readline()
+        if a.find('a') >= 0:
+          # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
+          all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
+          if all.find('baseurl='+url) > 0:
+            print "is already there, enabling it."
+            p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
+            os.waitpid(p.pid, 0)
+          else:
+            p = subprocess.Popen(['sudo', 'zypper', 'ar', url, 'obs://'+args[0]])
+            os.waitpid(p.pid, 0)
+
+      # FIXME:
+      # we should temporarily add all the layered repositories from the project.
+      # so that dependencies get expanded just the same way as the 11-click-install via 
+      # web-interface does.
+      #
+    #}
+
     # We need a way to monitor what the command is printing. Without delaying, prompts and such.
     # subprocess communicate() delays everything.
     if platform is None: platform = 'PLATFORM'
