@@ -223,7 +223,7 @@ def do_install(self, subcmd, opts, *args):
     if len(args) == 1 and not re.search('\.(rpm|ymp)$', args[0]):
       args = slash_split(args)
     if len(args) == 0:
-      args = expand_proj_pack(args)
+      args = expand_proj_pack(list(args))
       print "proj/pack from current working directory:", args
     platform = None
 
