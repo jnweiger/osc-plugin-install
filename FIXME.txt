@@ -1,3 +1,7 @@
+Implement osc meta prj parsing, if ymp is not available
+
+Remove all -p from zypper calls, if adding repos permanently.
+
 osc ll -b KDE:Distro:Factory digikam
 shows packages for 12.2, osc in does not.
 

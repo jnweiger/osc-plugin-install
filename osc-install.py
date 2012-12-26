@@ -27,6 +27,7 @@
 # 2012-07-12, jw V0.16 -- no stacktrace, when package does not exist.
 # 2012-09-13, jw V0.17 -- also weed out .xml files! -U --prefer-unpublished added
 # 2012-12-07, jw V0.18 -- added direct osc bse result usage. (args[0] is None)
+# 2012-12-27, jw V0.19 -- added ymp parsing in _layered_repos(). ET is horrible with namespaces.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -68,6 +69,7 @@
 # repositories).
 # 'osc in' analyzes the meta data of the project, and creates the proper list
 # of repositories for zypper, just as yast would do.
+# 
 # Project owners often pull in all the dependencies of their packages
 # into their projects, (via link or aggregate), just to avoid this problem.
 #  That should never be needed.
@@ -149,7 +151,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.18'
+OSC_INS_PLUGIN_VERSION = '0.19'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -254,8 +256,9 @@ def do_install(self, subcmd, opts, *args):
         sys.exit(0)
         ## FIXME:
         ## if there is only one argument, and it ends in .ymp
-        ## then fetch it, Parse XML to get the first
+        ## then fetch it, Parse XML to get all 
         ##  metapackage.group.repositories.repository.url
+        ##  construct zypper commands to add all these repos.
         ## and construct zypper cmd's for all
         ##  metapackage.group.software.item.name
         ##
@@ -386,8 +389,16 @@ def do_install(self, subcmd, opts, *args):
           cmd = "sudo zypper --no-refresh -v in --force %s" % args[1]
           cmdv = ['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', args[1]]
       else:
-          cmd = "(repo=%s; sudo zypper -p $repo --gpg-auto-import-keys --no-refresh -v in --force --from $repo %s)" % (url, args[1])
-          cmdv = ['sudo', 'zypper', '-p', url, '--gpg-auto-import-keys', '--no-refresh', '-v', 'in', '--force', '--from', url, args[1]]
+          cmd = "(repo=" + url + "; sudo zypper -p $repo"
+          cmdv = ['sudo', 'zypper', '-p', url]
+
+          for u in (self._layered_repos(args[0], platform, args[1])):
+            if u != url:
+              cmd += " -p " + u
+              cmdv.extend(["-p", u])
+
+          cmd += " --gpg-auto-import-keys --no-refresh -v in --force --from $repo " + args[1] + ")"
+          cmdv.extend(['--gpg-auto-import-keys', '--no-refresh', '-v', 'in', '--force', '--from', url, args[1]])
     #}
     else:
     #{
@@ -403,8 +414,11 @@ def do_install(self, subcmd, opts, *args):
       if all.find('baseurl='+url) > 0:
         print "repo %s was already added." % url
       else:
-        print "(Type 'a' to add the repo permanently) Press Enter to continue."
+        print "(Type 'a' to add the repo ('A' for all repos) permanently) Press Enter to continue."
         a = sys.stdin.readline()
+        if a.find('A') >= 0:
+          print "adding all layered repos permanently is not implemented."
+          a="a"
         if a.find('a') >= 0:
           # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
           all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
@@ -415,12 +429,7 @@ def do_install(self, subcmd, opts, *args):
           else:
             p = subprocess.Popen(['sudo', 'zypper', 'ar', url, 'obs://'+args[0]])
             os.waitpid(p.pid, 0)
-
-      # FIXME:
-      # we should temporarily add all the layered repositories from the project.
-      # so that dependencies get expanded just the same way as the 11-click-install via 
-      # web-interface does.
-      #
+          # FIXME: now we should no longer use -p with cmd
     #}
 
     # We need a way to monitor what the command is printing. Without delaying, prompts and such.
@@ -459,6 +468,57 @@ def do_install(self, subcmd, opts, *args):
       else:
         print "There is no %s for you." % args[1]
     print "\n -- osc %s, by jw@suse.de" % OSC_INS_PLUGIN_NAME
+
+def _layered_repos(self, proj, platform, pack):
+    apiurl = self.get_api_url()
+    ymp = None
+    if apiurl == 'https://api.opensuse.org': 
+        # with obs we have this:
+        # http://software.opensuse.org/ymp/home:jnweiger:freecad/openSUSE_12.2/freecad.ymp
+        ymp = 'http://software.opensuse.org/ymp/%s/%s/%s.ymp' % (proj, platform, pack)
+
+    try:
+        f = http_GET(ymp)
+    except:
+        print "Oops: failed to grab\n %s" % ymp
+        print "FIXME: should pull osc meta prj instead...\n"
+        # FIXME: retry by reading meta prj
+        return []
+
+    metapackage = ET.parse(f).getroot()
+       
+    urls = []
+    # ET cannot find tags by name, if namespaces are being used.
+    # urls = [ node.tag for node in metapackage.findall(".//{*}url") ]
+    #
+    # The xml code we get would be trivial to parse, if there were no namespace declaration
+    # With xmlns=, each and every tag with findall or iterfind needs to be written with the 
+    # full namespace in curly braces. 
+    # Example findall('.//{http://opensuse.org/Standards/One_Click_Install}repository}')
+    # would match a repository node. This is horrible, I don't want to hardcode namespaces or 
+    # uglify my code with complex namespace handling at all.
+    #
+    # <metapackage xmlns="http://opensuse.org/Standards/One_Click_Install">
+    #   <group>
+    #     <repositories>
+    #       <repository recommended="true">
+    #         <name>devel:gcc</name>
+    #         <summary>GNU Compiler Collection container</summary>
+    #         <description>Contains compilers updating openSUSE releases ...</description>
+    #         <url>http://download.opensuse.org/repositories/devel:/gcc/openSUSE_12.2/</url>
+    #       </repository>
+    #
+    ####
+    # instead, we use the fact, that all repository nodes have an attribute 'recommended'
+    # and we grab all children whose tagname matches 'url', with an optional ns-prefix.
+    ####
+    for repository in metapackage.iterfind(".//*[@recommended='true']"):
+        for node in repository:
+            if re.search("}?url$", node.tag):
+                url = re.sub('/$', '', node.text)
+                print "from ymp: "+url
+                urls.append(url)
+    return urls
 
 
 def _read_system_name(self, file, opts):
