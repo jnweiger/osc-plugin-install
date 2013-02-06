@@ -28,6 +28,7 @@
 # 2012-09-13, jw V0.17 -- also weed out .xml files! -U --prefer-unpublished added
 # 2012-12-07, jw V0.18 -- added direct osc bse result usage. (args[0] is None)
 # 2012-12-27, jw V0.19 -- added ymp parsing in _layered_repos(). ET is horrible with namespaces.
+# 2013-02-06, jw V0.20 -- added _pipe_from_cmd_stdout() to obsolete TeePopen() where it misbehaves.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -151,7 +152,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.19'
+OSC_INS_PLUGIN_VERSION = '0.20'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -410,9 +411,9 @@ def do_install(self, subcmd, opts, *args):
 
     if args[0] is not None:
     #{
-      all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
+      all = self._pipe_from_cmd_stdout(('sudo', 'zypper', 'lr', '-e', '-'))
       if all.find('baseurl='+url) > 0:
-        print "repo %s was already added." % url
+        print "repo %s already known." % url
       else:
         print "(Type 'a' to add the repo ('A' for all repos) permanently) Press Enter to continue."
         a = sys.stdin.readline()
@@ -420,8 +421,7 @@ def do_install(self, subcmd, opts, *args):
           print "adding all layered repos permanently is not implemented."
           a="a"
         if a.find('a') >= 0:
-          # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
-          all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-'], silent='.'))
+          all = self._pipe_from_cmd_stdout(('sudo', 'zypper', 'lr', '-e', '-'))
           if all.find('baseurl='+url) > 0:
             print "is already there, enabling it."
             p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
@@ -437,6 +437,7 @@ def do_install(self, subcmd, opts, *args):
     if platform is None: platform = 'PLATFORM'
 
     # old code: os.execvp(cmdv[0], cmdv)
+    # Fixme: can we replace that with _tee_from_cmd_stdout() ??
     buf = str(TeePopen(cmdv, verbose=True))
     if opts.prefer_unpublished or re.search("Package '\S+' not found", buf):
       import osc.build
@@ -758,3 +759,28 @@ class TeePopen():
       self.tee.close()
 globals()['TeePopen'] = TeePopen
 
+def _tee_from_cmd_stdout(self, cmdv):
+  return self._pipe_from_cmd_stdout(cmdv, progress=None, term=None, tee=True)
+
+def _pipe_from_cmd_stdout(self, cmdv, progress='.', term='\n', tee=False):
+  """modelled after subprocess.communicate()
+     handles only the trivial case of stdout pipe, 
+     but has a nice progress indicator.
+     Use tee=True to mirror stdout to stdout *and* return a copy.
+  """
+  ## bad: communicate blocks and buffers till the end.
+  # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
+  ## bad: cannot make passwor prompts via stderr appear, while suppressing stdout.
+  #all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-']))
+  p = subprocess.Popen(cmdv, stdout=subprocess.PIPE)
+  all = ''
+  while True:
+    r = p.stdout.read()
+    if tee: sys.stdout.write(r)
+    if progress is not None: sys.stderr.write(progress)
+    if len(r) == 0: break
+    all += r
+  p.stdout.close()
+  p.wait()
+  if term is not None: sys.stderr.write(term)
+  return all

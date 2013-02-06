@@ -24,7 +24,6 @@ osc in daps -p openSUSE_12.1_Update
  CAUTION: .oscrc:build_project openSUSE:12.1 does not match: low score=-2
 # this is a silly colon versus underscore issue.
 
-
 add all repos from project layering for better dependency resolution.
 
 print out osc meta description while installing, there may be instructions there...
