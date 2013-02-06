@@ -1,3 +1,6 @@
+Calling sudo from subprocess.Popen() almost always reprompts for the password.
+  What is the reason? new pty??
+
 Implement osc meta prj parsing, if ymp is not available
 
 Remove all -p from zypper calls, if adding repos permanently.
