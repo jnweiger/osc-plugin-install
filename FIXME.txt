@@ -1,6 +1,14 @@
 Calling sudo from subprocess.Popen() almost always reprompts for the password.
   What is the reason? new pty??
 
+New feature: background task while installing:
+ - download the specfile and check for source tar balls with newer date or higher version numbers.
+ - print a warning after installation if it appears outdated. Naming potential urls for newer source.
+ - print a congratulations message if this is the latest version.
+
+osc sup aka source-update different file: osc-source-update.py
+ - do the above on a checkout.
+
 Implement osc meta prj parsing, if ymp is not available
 
 Remove all -p from zypper calls, if adding repos permanently.

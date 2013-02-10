@@ -454,8 +454,11 @@ def do_install(self, subcmd, opts, *args):
       # [publican-2.3-15.26.noarch.rpm, publican-2.3-15.26.src.rpm]
       # [copyfs-1.0-1.1.i586.rpm, copyfs-1.0-1.1.src.rpm, rpmlint.log]
       ## weed out non-binaries.
-      binaries = filter(lambda x: not re.search('(src\.rpm|\.log|\.xml)$', str(x)), binaries)
+      binaries = filter(lambda x: not re.search('(src\.rpm|\.log|\.xml|_statistics)$', str(x)), binaries)
       ## sort shortest name is first, so that foo-debuginfo comes after foo
+      if len(binaries) > 1:
+        print "multiple binaries available:"
+        print binaries
       binaries.sort(lambda x, y: cmp(len(str(x)), len(str(y))))
       ## filter down for starting with my name, optional.
       mainbin = filter(lambda x: re.match(args[1], str(x)), binaries)
