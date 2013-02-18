@@ -1,7 +1,7 @@
 #
 # Rewrite of the builtin install cludge...
 #
-# (C) 2010-2012, jw@suse.de, Novell Inc., openSUSE.org
+# (C) 2010-2013, jw@suse.de, Novell Inc., openSUSE.org
 # Distribute under GPLv2 or GPLv3
 #
 # 2010-10-12, jw V0.1 -- initial draft
@@ -29,6 +29,9 @@
 # 2012-12-07, jw V0.18 -- added direct osc bse result usage. (args[0] is None)
 # 2012-12-27, jw V0.19 -- added ymp parsing in _layered_repos(). ET is horrible with namespaces.
 # 2013-02-06, jw V0.20 -- added _pipe_from_cmd_stdout() to obsolete TeePopen() where it misbehaves.
+# 2013-02-18, jw V0.21 -- TeePopen(): shorten long hex strings and useless 
+#                         urls, so that overwriting lines with \r is not fooled
+#                         by line wraps.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -152,7 +155,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.20'
+OSC_INS_PLUGIN_VERSION = '0.21'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -438,6 +441,7 @@ def do_install(self, subcmd, opts, *args):
 
     # old code: os.execvp(cmdv[0], cmdv)
     # Fixme: can we replace that with _tee_from_cmd_stdout() ??
+    print "Go:"
     buf = str(TeePopen(cmdv, verbose=True))
     if opts.prefer_unpublished or re.search("Package '\S+' not found", buf):
       import osc.build
@@ -750,6 +754,9 @@ class TeePopen():
     """
     r = os.read(fd, 1024)
     self.tee.write(r)
+    # shorten long hex strings and useless urls, they just look ugly.
+    r = re.sub('Retrieving: [0-9a-f]+', 'Retrieving: ...', r, re.M)
+    r = re.sub("Adding repository '\S+'", 'Adding: ...', r, re.M)
     ## haeh, why is the ternery operator so ugly in python???
     return (r, self.silent)[self.silent != False]
   def __str__(self):
@@ -773,7 +780,7 @@ def _pipe_from_cmd_stdout(self, cmdv, progress='.', term='\n', tee=False):
   """
   ## bad: communicate blocks and buffers till the end.
   # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
-  ## bad: cannot make passwor prompts via stderr appear, while suppressing stdout.
+  ## bad: cannot make password prompts via stderr appear, while suppressing stdout.
   #all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-']))
   p = subprocess.Popen(cmdv, stdout=subprocess.PIPE)
   all = ''
