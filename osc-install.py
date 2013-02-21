@@ -32,6 +32,7 @@
 # 2013-02-18, jw V0.21 -- TeePopen(): shorten long hex strings and useless 
 #                         urls, so that overwriting lines with \r is not fooled
 #                         by line wraps.
+# 2013-02-23,          -- shortening typo fixed.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -755,8 +756,9 @@ class TeePopen():
     r = os.read(fd, 1024)
     self.tee.write(r)
     # shorten long hex strings and useless urls, they just look ugly.
-    r = re.sub('Retrieving: [0-9a-f]+', 'Retrieving: ...', r, re.M)
+    r = re.sub('Retrieving: [0-9a-f]+\-', 'Retrieving: ...-', r, re.M)
     r = re.sub("Adding repository '\S+'", 'Adding: ...', r, re.M)
+    r = re.sub("Building repository '\S+' cache", 'Cache: ...', r, re.M)
     ## haeh, why is the ternery operator so ugly in python???
     return (r, self.silent)[self.silent != False]
   def __str__(self):
