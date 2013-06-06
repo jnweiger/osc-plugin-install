@@ -1,3 +1,6 @@
+all needed repostiories are always added as tmp1,tmp2,.. even if they are
+already in zypper's list. This causes excessive refreshes!
+
 Calling sudo from subprocess.Popen() almost always reprompts for the password.
   What is the reason? new pty??
 
