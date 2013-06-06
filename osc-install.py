@@ -33,6 +33,7 @@
 #                         urls, so that overwriting lines with \r is not fooled
 #                         by line wraps.
 # 2013-02-23,          -- shortening typo fixed.
+# 2013-06-05, jw, V0.22 -- added lispish parens to print statements to make newer osc happy.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -156,7 +157,7 @@
 
 import traceback
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.21'
+OSC_INS_PLUGIN_VERSION = '0.22'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -760,7 +761,8 @@ class TeePopen():
     r = re.sub("Adding repository '\S+'", 'Adding: ...', r, re.M)
     r = re.sub("Building repository '\S+' cache", 'Cache: ...', r, re.M)
     ## haeh, why is the ternery operator so ugly in python???
-    return (r, self.silent)[self.silent != False]
+    # return (r, self.silent)[self.silent != False]
+    return self.silent if self.silent != False else r
   def __str__(self):
     if self.internal_fd:
       return self.tee.getvalue()
