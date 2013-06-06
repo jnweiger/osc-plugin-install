@@ -1,0 +1,17 @@
+# I cannot keep my personal working copy around. 
+# The build service gets confused, if its repo differs from my working copy.
+
+# use this procedure for a temporary branch and working copy:
+
+pushd ~/src/obs
+osc bco openSUSE:Tools osc-plugin-install
+cd home:jnweiger:branches:openSUSE:Tools/osc-plugin-install
+diff -u ~/src/github/osc-plugin-install/osc-install.py osc-install.py
+cp ~/g/osc-plugin-install/osc-install.py .
+osc vc
+osc ci
+osc submitpac
+cd ..
+rm -ef osc-plugin-install
+popd
+
