@@ -231,7 +231,7 @@ def do_install(self, subcmd, opts, *args):
       args = slash_split(args)
     if len(args) == 0:
       args = expand_proj_pack(list(args))
-      print "proj/pack from current working directory:", args
+      print("proj/pack from current working directory:", args)
     platform = None
 
 
@@ -255,9 +255,9 @@ def do_install(self, subcmd, opts, *args):
         else:
           url = "%s/%s" % (dl, args[0])
         args = [ None, url ]
-        print >> sys.stderr, "using direct rpm url (%s).\n" % url
+        print("using direct rpm url (%s).\n" % (url), file=sys.stderr)
       elif re.search('\.ymp$', args[0]):
-        print "ymp file not implemented.\n"
+        print("ymp file not implemented.\n")
         sys.exit(0)
         ## FIXME:
         ## if there is only one argument, and it ends in .ymp
@@ -274,11 +274,11 @@ def do_install(self, subcmd, opts, *args):
         if m:
           # a perlish RPM capability
           args = ( 'perl-' + re.sub('::', '-', m.group(1)), )
-          print "obs name -> %s" % args[0]
+          print("obs name -> %s" % (args[0]))
         elif re.search('::', args[0]):
           # a cpan name
           args = ( 'perl-' + re.sub('::', '-', args[0]), )
-          print "obs name -> %s" % args[0]
+          print("obs name -> %s" % (args[0]))
         all = self._search_projects(apiurl, args[0])
         # [ {'name': 'python-json-rpc-lib', 'repository': 'openSUSE_Factory', 
         #    'package': 'python-json-rpc-lib',  'type': 'rpm', 
@@ -297,16 +297,16 @@ def do_install(self, subcmd, opts, *args):
             arch_words.append('i586')
             arch_words.append('i686')
             arch_words.append('i386')
-          if opts.verbose: print arch_words
+          if opts.verbose: print(arch_words)
 
         for r in all:
           if opts.verbose:
-            print " seen ", r['project'], r['baseproject']
+            print(" seen ", r['project'], r['baseproject'])
           if r['repository'] == 'standard':
             r['repository'] = re.sub(':','_',r['baseproject'])
           if r['arch'] in arch_words or r['arch'] == 'noarch':
             seen[r['repository']] = 1
-        if opts.verbose: print seen
+        if opts.verbose: print(seen)
         best = self._best_platform(etc_S_r, seen.keys(), opts)
           
         ## ...filter down by best matching platform
@@ -331,11 +331,11 @@ def do_install(self, subcmd, opts, *args):
         for r in res:
           cached = ''
           if r.has_key('cached'): cached = ' (cached %s)' % (r['cached']['size'])
-          print "%2d: %-50s%-15s %-10s%s" % (i, r['project'], r['version'], r['arch'], cached)
+          print("%2d: %-50s%-15s %-10s%s" % (i, r['project'], r['version'], r['arch'], cached))
           i += 1
-        print ''
+        print('')
         if opts.arch:
-          print "WARNING: --arch option is unreliable. zypper might still choose something different!"
+          print("WARNING: --arch option is unreliable. zypper might still choose something different!")
         
         if len(res) > 1:
           nr = self._user_prompt("Type number from above list (default=1), press ENTER", None, None)
@@ -350,9 +350,9 @@ def do_install(self, subcmd, opts, *args):
 
         try:
           args[1] = res[idx]['cached']['path']
-          print >>sys.stderr, 'using %s' % args[1]
+          print('using %s' % (args[1]), file=sys.stderr)
         except:
-          print >>sys.stderr, 'using %s/%s' % (args[0], args[1])
+          print('using %s/%s' % (args[0], args[1]), file=sys.stderr)
       #}
     #}
 
@@ -381,8 +381,8 @@ def do_install(self, subcmd, opts, *args):
         url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'
       else:
         repos = get_repositories_of_project(apiurl, args[0])
-        # print "get_repositories_of_project(%s,%s) returns " % ( apiurl, args[0])
-        # print repos
+        # print("get_repositories_of_project(%s,%s) returns " % ( apiurl, args[0]))
+        # print(repos)
         platform = self._best_platform(etc_S_r, 
           get_repositories_of_project(apiurl, args[0]), opts)
         url = "%s/%s/%s" % (dl, re.sub(':',':/',args[0]), platform)
@@ -411,23 +411,23 @@ def do_install(self, subcmd, opts, *args):
       cmdv = ['sudo', 'zypper', 'in', url]
     #}
 
-    print "Suggested installation command: \n" + cmd
+    print("Suggested installation command: \n" + cmd)
 
     if args[0] is not None:
     #{
       all = self._pipe_from_cmd_stdout(('sudo', 'zypper', 'lr', '-e', '-'))
       if all.find('baseurl='+url) > 0:
-        print "repo %s already known." % url
+        print("repo %s already known." % (url))
       else:
-        print "(Type 'a' to add the repo ('A' for all repos) permanently) Press Enter to continue."
+        print("(Type 'a' to add the repo ('A' for all repos) permanently) Press Enter to continue.")
         a = sys.stdin.readline()
         if a.find('A') >= 0:
-          print "adding all layered repos permanently is not implemented."
+          print("adding all layered repos permanently is not implemented.")
           a="a"
         if a.find('a') >= 0:
           all = self._pipe_from_cmd_stdout(('sudo', 'zypper', 'lr', '-e', '-'))
           if all.find('baseurl='+url) > 0:
-            print "is already there, enabling it."
+            print("is already there, enabling it.")
             p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
             os.waitpid(p.pid, 0)
           else:
@@ -442,7 +442,7 @@ def do_install(self, subcmd, opts, *args):
 
     # old code: os.execvp(cmdv[0], cmdv)
     # Fixme: can we replace that with _tee_from_cmd_stdout() ??
-    print "Go:"
+    print("Go:")
     buf = str(TeePopen(cmdv, verbose=True))
     if opts.prefer_unpublished or re.search("Package '\S+' not found", buf):
       import osc.build
@@ -453,7 +453,7 @@ def do_install(self, subcmd, opts, *args):
       # Forcing installation of 'glade3-3.7.0-8.1.i586' from repository 'Plain RPM files cache'.
       # Problem: nothing provides libgladeui-1.so.9 needed by glade3-3.7.0-8.1.i586
       ##
-      print "not there, ... trying unpublished (CTRL-C to abort) Press Enter to continue."
+      print("not there, ... trying unpublished (CTRL-C to abort) Press Enter to continue.")
       a = sys.stdin.readline()
       binaries = get_binarylist(apiurl, args[0], platform, osc.build.hostarch, package=args[1], verbose=True)
       # [publican-2.3-15.26.noarch.rpm, publican-2.3-15.26.src.rpm]
@@ -462,8 +462,8 @@ def do_install(self, subcmd, opts, *args):
       binaries = filter(lambda x: not re.search('(src\.rpm|\.log|\.xml|_statistics)$', str(x)), binaries)
       ## sort shortest name is first, so that foo-debuginfo comes after foo
       if len(binaries) > 1:
-        print "multiple binaries available:"
-        print binaries
+        print("multiple binaries available:")
+        print(binaries)
       binaries.sort(lambda x, y: cmp(len(str(x)), len(str(y))))
       ## filter down for starting with my name, optional.
       mainbin = filter(lambda x: re.match(args[1], str(x)), binaries)
@@ -475,8 +475,8 @@ def do_install(self, subcmd, opts, *args):
         TeePopen(['sudo', 'zypper', '--no-refresh', '-v', 'in', '--force', tmpfile], verbose=True)
         os.unlink(tmpfile)
       else:
-        print "There is no %s for you." % args[1]
-    print "\n -- osc %s, by jw@suse.de" % OSC_INS_PLUGIN_NAME
+        print("There is no %s for you." % (args[1]))
+    print("\n -- osc %s, by jw@suse.de" % (OSC_INS_PLUGIN_NAME))
 
 def _layered_repos(self, proj, platform, pack):
     apiurl = self.get_api_url()
@@ -489,8 +489,8 @@ def _layered_repos(self, proj, platform, pack):
     try:
         f = http_GET(ymp)
     except:
-        print "Oops: failed to grab\n %s" % ymp
-        print "FIXME: should pull osc meta prj instead...\n"
+        print("Oops: failed to grab\n %s" % ymp)
+        print("FIXME: should pull osc meta prj instead...\n")
         # FIXME: retry by reading meta prj
         return []
 
@@ -525,13 +525,13 @@ def _layered_repos(self, proj, platform, pack):
         for node in repository:
             if re.search("}?url$", node.tag):
                 url = re.sub('/$', '', node.text)
-                print "from ymp: "+url
+                print("from ymp: "+url)
                 urls.append(url)
     return urls
 
 
 def _read_system_name(self, file, opts):
-    print "using %s to match build platforms" % file
+    print("using %s to match build platforms" % (file))
     text = open(file).read()
     a = {}
     for i in (re.split("[\s_:=\(\)]+", text)):
@@ -565,7 +565,7 @@ def _read_system_name(self, file, opts):
         a['SLE' + s + '_' + v + '_SP' + sp] = 5
         a['SLE'       '_' + v + '_SP' + sp] = 5
 
-    if opts.verbose: print "_read_system_name(%s) -> '%s'" % (file, a)
+    if opts.verbose: print("_read_system_name(%s) -> '%s'" % (file, a))
     self.system_name_words = a
     return a
 
@@ -581,7 +581,7 @@ def _best_platform(self, etc_suse_release, repos, opts):
     default_platform = 'openSUSE_12.2'
     platform_in = opts.platform
     if opts.verbose:
-      print "_best_platform: etc_suse_release=%s, platform_in=%s, repos=%s" % (etc_suse_release, platform_in, repos)
+      print("_best_platform: etc_suse_release=%s, platform_in=%s, repos=%s" % (etc_suse_release, platform_in, repos))
     if platform_in:
       platform_words = { platform_in: 1 }
     else:
@@ -602,7 +602,7 @@ def _best_platform(self, etc_suse_release, repos, opts):
       for i in (range(0,len(repos))):
         score = self._matches_in_name(repos[i], platform_words)
         if opts.verbose:
-          print "repo %s: score %s" % (repos[i], score)
+          print("repo %s: score %s" % (repos[i], score))
         if score > max_score:
           max_score = score
           platform = repos[i]
@@ -610,20 +610,20 @@ def _best_platform(self, etc_suse_release, repos, opts):
       score = self._matches_in_name(build_platform, platform_words)
       if score > max_score:
         if (platform and build_platform != platform):
-          print "CAUTION: .oscrc:build_project %s disagrees with best matching platform %s" % (build_platform,platform)
+          print("CAUTION: .oscrc:build_project %s disagrees with best matching platform %s" % (build_platform,platform))
         else:
           platform = build_platform
       if score < max_score:
-        print "CAUTION: .oscrc:build_project %s does not match: low score=%d" % (build_platform, score)
+        print("CAUTION: .oscrc:build_project %s does not match: low score=%d" % (build_platform, score))
 
     if platform:
-      print "Best matching platform is %s" % platform
+      print("Best matching platform is %s" % (platform))
       if opts.platform and opts.platform != platform:
           platform = opts.platform 
-          print "cmdline takes precedence: -p %s" % opts.platform
+          print("cmdline takes precedence: -p %s" % (opts.platform))
     else:
       platform = default_platform
-      print "Default platform=%s (no scores). Use 'build_project' in ~/.oscrc or -p to override" % platform
+      print("Default platform=%s (no scores). Use 'build_project' in ~/.oscrc or -p to override" % (platform))
     return platform
 
 
@@ -646,7 +646,7 @@ def _matches_in_name(self, name, words):
     if len(remainder):
       remainder = re.sub('[ _:]+', ' ', remainder)
       # if opts.verbose:
-      #   print "%s left-over pieces: %s" % (name, remainder.split())
+      #   print("%s left-over pieces: %s" % (name, remainder.split()))
       score -= len(remainder.split())
 
     return score
@@ -691,7 +691,7 @@ def _search_projects(self, apiurl, packname):
   # collection = search(apiurl, 'published/binary/id'=xpath)
   query = { 'match': "@name='%s'" % packname }
   u = makeurl(apiurl, ['search', 'published', 'binary', 'id'], query)
-  print u
+  print(u)
   f = http_GET(u)
   collection = ET.parse(f).getroot()
   found = []
@@ -706,8 +706,8 @@ def _user_prompt(self, prompt, msg, injected):
     if injected:
       if msg is not None: return msg + "\n" + injected
       return injected
-    print prompt
-    if msg is not None: print "> " + msg
+    print(prompt)
+    if msg is not None: print("> " + msg)
     sys.stdout.write("> ")
     response = sys.stdin.readline().strip()
     if msg is not None: response = msg + "\n" + response
@@ -731,7 +731,7 @@ class TeePopen():
     else:
       self.silent = silent
     if verbose:
-      print '+', ' '.join(cmdv)
+      print('+', ' '.join(cmdv))
     #
     ## python lambda is the only way to look into the surrounding scope. 
     ## But then python lambda cannot do anything except a simple expression.
