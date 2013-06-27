@@ -34,6 +34,8 @@
 #                         by line wraps.
 # 2013-02-23,          -- shortening typo fixed.
 # 2013-06-05, jw, V0.22 -- added lispish parens to print statements to make newer osc happy.
+# 2013-06-27, jw, V0.23 -- ported forward to new osc. Abondoning print(..., file=sys.stderr) as it is invalid syntax
+#                          for plugins. It is valid for the main code though. No idea what is wrong.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -155,9 +157,11 @@
 # How to map from this obs:// url to the following download url???
 # http://download.opensuse.org/repositories/openSUSE:/Maintenance:/970/openSUSE_12.2_Update/i586/kernel-desktop-debuginfo-3.4.11-2.16.1.i586.rpm
 
-import traceback
+import traceback, sys
+from osc import cmdln
+
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.22'
+OSC_INS_PLUGIN_VERSION = '0.23'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -171,11 +175,13 @@ OSC_INS_REPO_MAP = """
       'openSUSE:11.4': ['http://download.opensuse.org/distribution/11.4/repo/oss'],
       'openSUSE:12.1': ['http://download.opensuse.org/distribution/12.1/repo/oss'],
       'openSUSE:12.2': ['http://download.opensuse.org/distribution/12.2/repo/oss'],
+      'openSUSE:12.3': ['http://download.opensuse.org/distribution/12.3/repo/oss'],
       'openSUSE:Factory': ['http://download.opensuse.org/distribution/openSUSE-current/repo/oss'],
       'openSUSE:11.3:NonFree': ['http://download.opensuse.org/distribution/11.3/repo/non-oss'],
       'openSUSE:11.4:NonFree': ['http://download.opensuse.org/distribution/11.4/repo/non-oss'],
       'openSUSE:12.1:NonFree': ['http://download.opensuse.org/distribution/12.1/repo/non-oss'],
       'openSUSE:12.2:NonFree': ['http://download.opensuse.org/distribution/12.2/repo/non-oss'],
+      'openSUSE:12.3:NonFree': ['http://download.opensuse.org/distribution/12.3/repo/non-oss'],
       'openSUSE:Factory:NonFree': ['http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'],
       '...': ['...']
     },
@@ -256,7 +262,7 @@ def do_install(self, subcmd, opts, *args):
         else:
           url = "%s/%s" % (dl, args[0])
         args = [ None, url ]
-        print("using direct rpm url (%s).\n" % (url), file=sys.stderr)
+        print("using direct rpm url (%s).\n" % (url))   # , file=sys.stderr)
       elif re.search('\.ymp$', args[0]):
         print("ymp file not implemented.\n")
         sys.exit(0)
@@ -351,9 +357,9 @@ def do_install(self, subcmd, opts, *args):
 
         try:
           args[1] = res[idx]['cached']['path']
-          print('using %s' % (args[1]), file=sys.stderr)
+          print('using %s' % (args[1]))         #, file=sys.stderr)
         except:
-          print('using %s/%s' % (args[0], args[1]), file=sys.stderr)
+          print('using %s/%s' % (args[0], args[1]))     #, file=sys.stderr)
       #}
     #}
 
@@ -370,6 +376,8 @@ def do_install(self, subcmd, opts, *args):
         url = 'http://download.opensuse.org/distribution/12.1/repo/oss'
       elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2':
         url = 'http://download.opensuse.org/distribution/12.2/repo/oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.3':
+        url = 'http://download.opensuse.org/distribution/12.3/repo/oss'
       elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.3:NonFree':
         url = 'http://download.opensuse.org/distribution/11.3/repo/non-oss'
       elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:11.4:NonFree':
@@ -378,6 +386,8 @@ def do_install(self, subcmd, opts, *args):
         url = 'http://download.opensuse.org/distribution/12.1/repo/non-oss'
       elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.2:NonFree':
         url = 'http://download.opensuse.org/distribution/12.2/repo/non-oss'
+      elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:12.3:NonFree':
+        url = 'http://download.opensuse.org/distribution/12.3/repo/non-oss'
       elif apiurl == 'https://api.opensuse.org' and args[0] == 'openSUSE:Factory:NonFree':
         url = 'http://download.opensuse.org/distribution/openSUSE-current/repo/non-oss'
       else:
@@ -416,9 +426,11 @@ def do_install(self, subcmd, opts, *args):
 
     if args[0] is not None:
     #{
-      all = self._pipe_from_cmd_stdout(('sudo', 'zypper', 'lr', '-e', '-'))
+      all = self._pipe_from_cmd_stdout(('zypper', 'lr', '-e', '-'))     # no sudo with lr
       if all.find('baseurl='+url) > 0:
-        print("repo %s already known." % (url))
+        print("repo %s already known, enabling ..." % (url))
+        p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
+        os.waitpid(p.pid, 0)
       else:
         print("(Type 'a' to add the repo ('A' for all repos) permanently) Press Enter to continue.")
         a = sys.stdin.readline()
@@ -426,7 +438,7 @@ def do_install(self, subcmd, opts, *args):
           print("adding all layered repos permanently is not implemented.")
           a="a"
         if a.find('a') >= 0:
-          all = self._pipe_from_cmd_stdout(('sudo', 'zypper', 'lr', '-e', '-'))
+          all = self._pipe_from_cmd_stdout(('zypper', 'lr', '-e', '-')) # no sudo with lr
           if all.find('baseurl='+url) > 0:
             print("is already there, enabling it.")
             p = subprocess.Popen(['sudo', 'zypper', 'mr', '-e', url])
@@ -748,6 +760,7 @@ class TeePopen():
 
     # FIXME: this code has better signal handling than pty.spawn:
     # http://code.google.com/p/lilykde/source/browse/trunk/runpty.py?r=314
+    # FIXME: sudo needs to reprompt for a password, when behind a pty
     pty.spawn(cmdv, lambda fd: self.tee_read(fd))
   def tee_read(self, fd):
     """ 
@@ -771,7 +784,6 @@ class TeePopen():
   def __del__(self):
     if self.internal_fd:
       self.tee.close()
-globals()['TeePopen'] = TeePopen
 
 def _tee_from_cmd_stdout(self, cmdv):
   return self._pipe_from_cmd_stdout(cmdv, progress=None, term=None, tee=True)
@@ -786,6 +798,7 @@ def _pipe_from_cmd_stdout(self, cmdv, progress='.', term='\n', tee=False):
   # all = subprocess.Popen(['sudo', 'zypper', 'lr', '-e', '-'], stdout=subprocess.PIPE).communicate()[0]
   ## bad: cannot make password prompts via stderr appear, while suppressing stdout.
   #all = str(TeePopen(['sudo', 'zypper', 'lr', '-e', '-']))
+  ## FIXME: repeated sudo commands all ask again for password.
   p = subprocess.Popen(cmdv, stdout=subprocess.PIPE)
   all = ''
   while True:
