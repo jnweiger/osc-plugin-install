@@ -345,7 +345,7 @@ def do_install(self, subcmd, opts, *args):
           print("WARNING: --arch option is unreliable. zypper might still choose something different!")
         
         if len(res) > 1:
-          nr = self._user_prompt("Type number from above list (default=1), press ENTER", None, None)
+          nr = _user_prompt("Type number from above list (default=1), press ENTER", None, None)
         
         idx = 0
         try:
@@ -714,7 +714,7 @@ def _search_projects(self, apiurl, packname):
   return found
 
 ## namespace clash: same method in osc-legal.py
-def _user_prompt(self, prompt, msg, injected):
+def _user_prompt(prompt, msg, injected):
     if msg is not None: msg = msg.rstrip()
     if injected:
       if msg is not None: return msg + "\n" + injected
