@@ -1,3 +1,5 @@
+allow installation of subpackages. e.g. dvswitch-git-client
+
 all needed repostiories are always added as tmp1,tmp2,.. even if they are
 already in zypper's list. This causes excessive refreshes!
 
