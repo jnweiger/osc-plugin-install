@@ -36,7 +36,7 @@
 # 2013-06-05, jw, V0.22 -- added lispish parens to print statements to make newer osc happy.
 # 2013-06-27, jw, V0.23 -- ported forward to new osc. Abondoning print(..., file=sys.stderr) as it is invalid syntax
 #                          for plugins. It is valid for the main code though. No idea what is wrong.
-# 2013-08-09, jw, V0.24 -- fallback to /etc/os-release, when reading /etc/SuSE-release fails.
+# 2013-08-09, jw, V0.23.1 -- fallback to /etc/os-release, when reading /etc/SuSE-release fails.
 #                          Added -k option to list keep-repos, instead of prompting each.
 #                          UNFINISHED-WIP: Revamping repo handling code to become sane, eventually.
 #                          
@@ -165,7 +165,7 @@ import traceback, sys
 from osc import cmdln
 
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.24'
+OSC_INS_PLUGIN_VERSION = '0.23.1'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -454,7 +454,7 @@ def do_install(self, subcmd, opts, *args):
       if known_repos.find('baseurl='+url) > 0:
         raise oscerr.WrongArgs('adding already added repo: ' + url)
       else:
-        p = subprocess.Popen(['sudo', 'zypper', 'ar', url, self._short_repo_name(url))
+        p = subprocess.Popen(['sudo', 'zypper', 'ar', url, self._short_repo_name(url)])
         os.waitpid(p.pid, 0)
               
       
@@ -522,7 +522,7 @@ def _need_temp_repo(self, url):
        If a repo is decided to be temporary, we return True.
        If a repo is meant permanent, we put it in self.repos_to_add and return False.
     """
-            if self._match_repo_url(opts.keeprepos, url):
+    if self._match_repo_url(opts.keeprepos, url):
         print("(Type 'a' to add the repo ('A' for all repos) permanently) Press Enter to continue.")
         a = sys.stdin.readline()
         if a.find('A') >= 0:

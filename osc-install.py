@@ -34,8 +34,11 @@
 #                         by line wraps.
 # 2013-02-23,          -- shortening typo fixed.
 # 2013-06-05, jw, V0.22 -- added lispish parens to print statements to make newer osc happy.
-# 2013-06-27, jw, V0.23 -- ported forward to new osc. Abondoning print(..., file=sys.stderr) as it is invalid syntax
-#                          for plugins. It is valid for the main code though. No idea what is wrong.
+# 2013-06-27, jw, V0.23 -- ported forward to new osc. Abondoning print(...,
+#                          file=sys.stderr) as it is invalid syntax for
+#                          plugins. It is valid for the main code though. No
+#                          idea what is wrong.
+# 2013-11-17, jw, V0.24 -- select-binary option added.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -161,7 +164,7 @@ import traceback, sys
 from osc import cmdln
 
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.23'
+OSC_INS_PLUGIN_VERSION = '0.24'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
@@ -203,6 +206,7 @@ OSC_INS_REPO_MAP = """
 @cmdln.option('-v', '--verbose', action='store_true', help='babble while working')
 @cmdln.option('-I', '--no-cache', action='store_true', help='ignore cached packages, always download. Default: check build cache /var/tmp/osbuild-packagecache')
 @cmdln.option('-U', '--prefer-unpublished', action='store_true', help='Grab unpublished binary directly from the API. Usefull if publishing is slow. Default: use normal mirror system.')
+@cmdln.option('-S', '--select-binary', help='Type a number for the binary, default first in list, aka 0')
 #@cmdln.prep(cwd_proj_pack)
 def do_install(self, subcmd, opts, *args):
     """${cmd_name}: install a package after build via zypper in -r
@@ -477,7 +481,10 @@ def do_install(self, subcmd, opts, *args):
       if len(binaries) > 1:
         print("multiple binaries available:")
         print(binaries)
-      binaries.sort(lambda x, y: cmp(len(str(x)), len(str(y))))
+        binaries.sort(lambda x, y: cmp(len(str(x)), len(str(y))))
+        if (opts.select_binary):
+          binaries=binaries[int(opts.select_binary):]
+          print(binaries)
       ## filter down for starting with my name, optional.
       mainbin = filter(lambda x: re.match(args[1], str(x)), binaries)
       mainbin.extend(binaries)
