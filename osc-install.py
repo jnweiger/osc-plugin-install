@@ -162,6 +162,7 @@
 
 import traceback, sys
 from osc import cmdln
+from __future__ import print_function
 
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
 OSC_INS_PLUGIN_VERSION = '0.24'
@@ -311,6 +312,8 @@ def do_install(self, subcmd, opts, *args):
           if opts.verbose: print(arch_words)
 
         for r in all:
+          if not 'baseproject' in r:
+            r['baseproject'] = r['project']	# hack to survive, but probably wrong...
           if opts.verbose:
             print(" seen ", r['project'], r['baseproject'])
           if r['repository'] == 'standard':
@@ -791,6 +794,8 @@ class TeePopen():
   def __del__(self):
     if self.internal_fd:
       self.tee.close()
+
+# globals()['TeePopen'] = TeePopen
 
 def _tee_from_cmd_stdout(self, cmdv):
   return self._pipe_from_cmd_stdout(cmdv, progress=None, term=None, tee=True)
