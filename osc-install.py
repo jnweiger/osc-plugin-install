@@ -161,9 +161,9 @@
 # How to map from this obs:// url to the following download url???
 # http://download.opensuse.org/repositories/openSUSE:/Maintenance:/970/openSUSE_12.2_Update/i586/kernel-desktop-debuginfo-3.4.11-2.16.1.i586.rpm
 
+from __future__ import print_function
 import traceback, sys
 from osc import cmdln
-from __future__ import print_function
 
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
 OSC_INS_PLUGIN_VERSION = '0.25'
