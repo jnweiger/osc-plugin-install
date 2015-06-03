@@ -39,6 +39,7 @@
 #                          plugins. It is valid for the main code though. No
 #                          idea what is wrong.
 # 2013-11-17, jw, V0.24 -- select-binary option added.
+# 2015-06-03, jw, V0.25 -- survive r['baseproject']. Hackish.
 #
 # FIXME: osc ll -b KDE:Distro:Factory digikam
 #        shows packages for 12.2, osc in does not.
@@ -165,7 +166,7 @@ from osc import cmdln
 from __future__ import print_function
 
 global OSC_INS_PLUGIN_VERSION, OSC_INS_PLUGIN_NAME
-OSC_INS_PLUGIN_VERSION = '0.24'
+OSC_INS_PLUGIN_VERSION = '0.25'
 OSC_INS_PLUGIN_NAME = traceback.extract_stack()[-1][0] + ' V' + OSC_INS_PLUGIN_VERSION
 
 # this table is obsoleted by get_repositories_of_project()
